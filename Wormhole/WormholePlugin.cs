@@ -45,6 +45,7 @@ namespace Wormhole
         public string admingatesconfirmsentfolder = "admingatesconfirmsent";
         public string admingatesconfirmreceivedfolder = "admingatesconfirmreceived";
         public string admingatesconfig = "admingatesconfig";
+        public string backupFolder = "backupswxwwvw";
         public override void Init(ITorchBase torch)
         {
             base.Init(torch);
@@ -94,7 +95,7 @@ namespace Wormhole
                     DirectoryInfo gridDir = new DirectoryInfo(Config.Folder + "/" + admingatesfolder);
                     DirectoryInfo gridDirsent = new DirectoryInfo(Config.Folder + "/" + admingatesconfirmsentfolder);
                     DirectoryInfo gridDirreceived = new DirectoryInfo(Config.Folder + "/" + admingatesconfirmreceivedfolder);
-                    foreach(var file in gridDirreceived.GetFiles())
+                    foreach (var file in gridDirreceived.GetFiles())
                     {
                         //if all other files have been correctly removed then remove safety to stop duplication
                         if (!File.Exists(gridDirsent.FullName + "/" + file.Name) && !File.Exists(gridDir.FullName + "/" + file.Name))
@@ -311,6 +312,10 @@ namespace Wormhole
                 }
                 if (MyObjectBuilderSerializer.SerializeXML(Utilities.CreateBlueprintPath(Path.Combine(Config.Folder, admingatesfolder), filename), false, builderDefinition))
                 {
+                    if (Config.GridBackup && !MyObjectBuilderSerializer.SerializeXML(Utilities.CreateBlueprintPath(Path.Combine(Config.Folder, backupFolder), filename), false, builderDefinition))
+                    {
+                        Log.Error("Failed to save backup of jumping ship");
+                    }
                     // Saves the game if enabled in config.
                     if (Config.SaveOnExit)
                     {

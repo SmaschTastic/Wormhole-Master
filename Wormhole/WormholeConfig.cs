@@ -44,6 +44,7 @@ namespace Wormhole {
         private bool _workWithAllJD = false;
         private bool _autoSend = false;
         private bool[] _playerRespawnType = new bool[] {false, false};
+        private bool _gridBackup = false;
 
         public bool[] PlayerRespawnType { get => _playerRespawnType; set => SetValue(ref _playerRespawnType, value); }
         public bool SaveOnExit { get => _saveOnExit; set => SetValue(ref _saveOnExit, value); }
@@ -62,5 +63,6 @@ namespace Wormhole {
         public bool PlayerRespawn { get => _playerRespawn; set => SetValue(ref _playerRespawn, value); }
         public bool WorkWithAllJD { get => _workWithAllJD; set => SetValue(ref _workWithAllJD, value); }
         public bool AutoSend { get => _autoSend; set => SetValue(ref _autoSend, value); }
+        public bool GridBackup { get => _gridBackup; set => SetValue(ref _gridBackup, value); }
     }
 }
