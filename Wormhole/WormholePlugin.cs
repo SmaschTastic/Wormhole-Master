@@ -45,7 +45,7 @@ namespace Wormhole
         public string admingatesconfirmsentfolder = "admingatesconfirmsent";
         public string admingatesconfirmreceivedfolder = "admingatesconfirmreceived";
         public string admingatesconfig = "admingatesconfig";
-        public string backupFolder = "backupswxwwvw";
+        public string backupFolder = "backups";
         public override void Init(ITorchBase torch)
         {
             base.Init(torch);
