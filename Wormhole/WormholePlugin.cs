@@ -296,7 +296,14 @@ namespace Wormhole
                         {
                             if (cockpit.Pilot != null)
                             {
-                                var playerSteamId = cockpit.Pilot.PlayerSteamId;
+                                List<IMyPlayer> players = new List<IMyPlayer>();
+
+                                MyAPIGateway.Players.GetPlayers(players);
+                                var player = (from a in players
+                                              where a.IdentityId == (cockpit.Pilot.OwningPlayerIdentityId)
+                                              select a).FirstOrDefault();
+
+                                var playerSteamId = player.SteamUserId;
                                 sittingPlayerSteamIds.Add(playerSteamId);
                                 ModCommunication.SendMessageTo(new JoinServerMessage(destination[1] + ":" + destination[2]), playerSteamId);
                             }
@@ -432,8 +439,14 @@ namespace Wormhole
                                 cockpit.Pilot = null;
                                 continue;
                             }
+                            List<IMyPlayer> players = new List<IMyPlayer>();
 
-                            var pilotSteamId = cockpit.Pilot.PlayerSteamId;
+                            MyAPIGateway.Players.GetPlayers(players);
+                            var player = (from a in players
+                                          where a.IdentityId == (cockpit.Pilot.OwningPlayerIdentityId)
+                                          select a).FirstOrDefault();
+
+                            var pilotSteamId = player.SteamUserId;
                             var pilotIdentityId = MyAPIGateway.Multiplayer.Players.TryGetIdentityId(pilotSteamId);
                             if (pilotIdentityId == -1)
                             {
