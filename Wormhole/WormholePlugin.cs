@@ -46,6 +46,7 @@ namespace Wormhole
         public string admingatesconfirmreceivedfolder = "admingatesconfirmreceived";
         public string admingatesconfig = "admingatesconfig";
         public string backupFolder = "backups";
+        
         public override void Init(ITorchBase torch)
         {
             base.Init(torch);
@@ -106,6 +107,20 @@ namespace Wormhole
                 }
                 catch (Exception e)
                 {
+
+                    /* We know that both incomming and outgoing server are accessing the same file. First to write when transfear is initiated and then again when transfear is done
+                     * and the access order is given so basically we dont give a fuck, so we just move on. */
+                    if (
+                    // if its a generel ioException
+                    e is IOException &&
+                    // i hate using substrings (If someone knows a better way, please do tell
+                    e.Message.Contains("The process cannot access the file") &&
+                    // Evenmore substring crap...
+                    e.Message.Contains("because it is being used by another process.")
+                     )
+                    {
+                        return;
+                    }
                     Log.Error(e, "Could not run Wormhole");
                 }
                 try
@@ -359,13 +374,13 @@ namespace Wormhole
                 //if file not null if file exists if file is done being sent and if file hasnt been received before
                 if (file != null && File.Exists(file.FullName) && File.Exists(gridDirsent.FullName + "/" + file.Name) && !File.Exists(gridDirreceived.FullName + "/" + file.Name))
                 {
-                    Log.Info("here 2");
                     var fileTransferInfo = Utilities.TransferFileInfo.parseFileName(file.Name);
                     if (fileTransferInfo.HasValue)
                     {
                         if (wormholeName == fileTransferInfo.Value.destinationWormhole)
                         {
-                            WormholeTransferInFile(file, fileTransferInfo.Value, gatepoint, gate);
+                            if (!WormholeTransferInFile(file, fileTransferInfo.Value, gatepoint, gate))
+                                continue;
                             changes = true;
                             File.Delete(gridDirsent.FullName + "/" + file.Name);
                             File.Create(gridDirreceived.FullName + "/" + file.Name);
@@ -384,7 +399,7 @@ namespace Wormhole
             }
         }
 
-        private void WormholeTransferInFile(FileInfo fileInfo, Utilities.TransferFileInfo fileTransferInfo, Vector3D gatePosition, BoundingSphereD gate)
+        private bool WormholeTransferInFile(FileInfo fileInfo, Utilities.TransferFileInfo fileTransferInfo, Vector3D gatePosition, BoundingSphereD gate)
         {
             Log.Info("processing filetransfer:" + fileTransferInfo.createLogString());
 
@@ -392,20 +407,20 @@ namespace Wormhole
             if (playerid <= 0)
             {
                 Log.Error("couldn't find player with steam id: " + fileTransferInfo.steamUserId);
-                return;
+                return false;
             }
 
             if (!MyObjectBuilderSerializer.DeserializeXML(fileInfo.FullName, out MyObjectBuilder_Definitions myObjectBuilder_Definitions))
             {
                 Log.Error("error deserializing xml: " + fileInfo.FullName);
-                return;
+                return true; // if we cant deserializing the file, we still needs the file to be deleted.
             }
 
             var shipBlueprints = myObjectBuilder_Definitions.ShipBlueprints;
             if (shipBlueprints == null)
             {
                 Log.Error("can't find any blueprints in xml: " + fileInfo.FullName);
-                return;
+                return true; // Again we need ti to be deleted.
             }
 
             foreach (var shipBlueprint in shipBlueprints)
@@ -439,21 +454,23 @@ namespace Wormhole
                                 cockpit.Pilot = null;
                                 continue;
                             }
-                            List<IMyPlayer> players = new List<IMyPlayer>();
 
+                            // cannot retreive steamId from cockpit.Pilot anylonger. Looking in the servers player cache if a player with the given steamId exists.
+                            List<IMyPlayer> players = new List<IMyPlayer>();
                             MyAPIGateway.Players.GetPlayers(players);
                             var player = (from a in players
                                           where a.IdentityId == (cockpit.Pilot.OwningPlayerIdentityId)
                                           select a).FirstOrDefault();
 
-                            var pilotSteamId = player.SteamUserId;
-                            var pilotIdentityId = MyAPIGateway.Multiplayer.Players.TryGetIdentityId(pilotSteamId);
-                            if (pilotIdentityId == -1)
+                            // If no player was found it will continue
+                            if (player == null)
                             {
-                                Log.Info("cannot find player, removing character from cockpit, steamid: " + pilotSteamId);
-                                cockpit.Pilot = null;
-                                continue;
+                                Log.Info("No active playerinstance for the pilot");
+                                return false;
                             }
+
+                            long pilotIdentityId = MyAPIGateway.Multiplayer.Players.TryGetIdentityId(player.SteamUserId);
+
                             cockpit.Pilot.OwningPlayerIdentityId = pilotIdentityId;
 
                             var pilotIdentity = MySession.Static.Players.TryGetIdentity(pilotIdentityId);
@@ -462,14 +479,14 @@ namespace Wormhole
                                 // if there is a character, kill it
                                 if (Config.ThisIp != null && Config.ThisIp != "")
                                 {
-                                    ModCommunication.SendMessageTo(new JoinServerMessage(Config.ThisIp), pilotSteamId);
+                                    ModCommunication.SendMessageTo(new JoinServerMessage(Config.ThisIp), player.SteamUserId);
                                 }
-                                KillCharacter(pilotSteamId);
+                                KillCharacter(player.SteamUserId);
                             }
                             pilotIdentity.PerformFirstSpawn();
                             pilotIdentity.SavedCharacters.Clear();
                             pilotIdentity.SavedCharacters.Add(cockpit.Pilot.EntityId);
-                            MyAPIGateway.Multiplayer.Players.SetControlledEntity(pilotSteamId, cockpit.Pilot as VRage.ModAPI.IMyEntity);
+                            MyAPIGateway.Multiplayer.Players.SetControlledEntity(player.SteamUserId, cockpit.Pilot as VRage.ModAPI.IMyEntity);
                         }
                     }
                 }
@@ -496,6 +513,7 @@ namespace Wormhole
 
                 MyVisualScriptLogicProvider.CreateLightning(gatePosition);
             }
+            return true;
         }
         private static void KillCharacter(ulong steamId)
         {
